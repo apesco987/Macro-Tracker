@@ -2,24 +2,20 @@
 import streamlit as st
 import pandas as pd
 
-# Initialize session state for meal log
+# Initialize session states
 if "meal_log" not in st.session_state:
     st.session_state.meal_log = []
 
-# Initialize food database
-food_database = {
-    "Chicken Breast": {"Calories": 165, "Protein": 31, "Carbs": 0, "Fats": 3.6},
-    "Brown Rice": {"Calories": 215, "Protein": 5, "Carbs": 45, "Fats": 1.8},
-    "Broccoli": {"Calories": 55, "Protein": 4.2, "Carbs": 11.2, "Fats": 0.6},
-    "Salmon": {"Calories": 206, "Protein": 22, "Carbs": 0, "Fats": 13},
-    "Avocado": {"Calories": 234, "Protein": 3, "Carbs": 12, "Fats": 21}
-}
+if "custom_foods" not in st.session_state:
+    st.session_state.custom_foods = {}
 
-# Initialize daily goals
 if "daily_goals" not in st.session_state:
     st.session_state.daily_goals = {"Calories": 2000, "Protein": 150, "Carbs": 250, "Fats": 70}
 
-# Sidebar for daily goal settings
+if "body_weight_log" not in st.session_state:
+    st.session_state.body_weight_log = []
+
+# Sidebar for setting daily goals
 st.sidebar.header("Set Daily Goals")
 calories_goal = st.sidebar.number_input("Calories Goal", value=st.session_state.daily_goals["Calories"])
 protein_goal = st.sidebar.number_input("Protein Goal", value=st.session_state.daily_goals["Protein"])
@@ -35,27 +31,49 @@ if st.sidebar.button("Update Goals"):
     }
     st.sidebar.success("Goals updated!")
 
-# Main interface
-st.title("Macro & Calorie Tracker")
+# Custom food entry
+st.header("Add a Custom Food")
+
+food_name = st.text_input("Food Name")
+calories = st.number_input("Calories", min_value=0.0, step=1.0)
+protein = st.number_input("Protein (g)", min_value=0.0, step=0.1)
+carbs = st.number_input("Carbs (g)", min_value=0.0, step=0.1)
+fats = st.number_input("Fats (g)", min_value=0.0, step=0.1)
+
+if st.button("Add Food"):
+    if food_name and food_name not in st.session_state.custom_foods:
+        st.session_state.custom_foods[food_name] = {
+            "Calories": calories,
+            "Protein": protein,
+            "Carbs": carbs,
+            "Fats": fats
+        }
+        st.success(f"{food_name} added successfully!")
+    else:
+        st.error("Please enter a unique food name.")
 
 # Meal logging section
 st.header("Log a Meal")
 
-food_choice = st.selectbox("Select a food item:", list(food_database.keys()))
-quantity = st.number_input("Enter quantity (multiplier)", min_value=0.1, step=0.1, value=1.0)
+available_foods = list(st.session_state.custom_foods.keys())
+if available_foods:
+    food_choice = st.selectbox("Select a food item:", available_foods)
+    quantity = st.number_input("Enter quantity (multiplier)", min_value=0.1, step=0.1, value=1.0)
 
-if st.button("Log Meal"):
-    food_info = food_database[food_choice]
-    meal_entry = {
-        "Food": food_choice,
-        "Calories": food_info["Calories"] * quantity,
-        "Protein": food_info["Protein"] * quantity,
-        "Carbs": food_info["Carbs"] * quantity,
-        "Fats": food_info["Fats"] * quantity,
-        "Quantity": quantity
-    }
-    st.session_state.meal_log.append(meal_entry)
-    st.success(f"{food_choice} logged!")
+    if st.button("Log Meal"):
+        food_info = st.session_state.custom_foods[food_choice]
+        meal_entry = {
+            "Food": food_choice,
+            "Calories": food_info["Calories"] * quantity,
+            "Protein": food_info["Protein"] * quantity,
+            "Carbs": food_info["Carbs"] * quantity,
+            "Fats": food_info["Fats"] * quantity,
+            "Quantity": quantity
+        }
+        st.session_state.meal_log.append(meal_entry)
+        st.success(f"{food_choice} logged!")
+else:
+    st.write("No foods available. Add a custom food first.")
 
 # Display meal log
 st.header("Meal Log")
@@ -84,3 +102,20 @@ progress = {
 
 progress_df = pd.DataFrame([progress])
 st.dataframe(progress_df)
+
+# Body Weight Tracking
+st.header("Daily Body Weight Tracking")
+
+weight = st.number_input("Enter your weight (lbs or kg)", min_value=0.0, step=0.1)
+if st.button("Log Weight"):
+    st.session_state.body_weight_log.append({"Weight": weight, "Day": len(st.session_state.body_weight_log) + 1})
+    st.success("Weight logged successfully!")
+
+# Display weight log
+st.header("Weight Progress")
+if st.session_state.body_weight_log:
+    weight_df = pd.DataFrame(st.session_state.body_weight_log)
+    st.line_chart(weight_df.set_index("Day"))
+    st.dataframe(weight_df)
+else:
+    st.write("No weight data logged yet.")
